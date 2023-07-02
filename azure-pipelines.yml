@@ -46,14 +46,44 @@ artifact: manifests
   dependsOn: Build
   jobs:
   - job: 'Deploy'
-    displayName: 'Deploy job'
+    displayName: 'Deploy'
     pool:
       vmImage: 'ubuntu-20.04'
+      environment: 'Dev'
     variables:
     - group: Release
-    steps:
-    - task: AzureWebAppContainer@1
-      inputs:
-       appName: $(WebAppName)
-       azureSubscription: 'Resource Manager - Tailspin - Space Game'
-       imageName: $(RegistryName)/$(webRepository):$(build.buildId)
+    strategy:
+    - runOnce:
+      deploy:
+       steps:
+       download: current
+       artifact: manifests
+       
+- task: KubernetesManifest@1
+  displayName: Create imagePullSecret
+  inputs:
+    action: createSecret
+    connectionType: azureResourceManager
+    secretName: $(imagePullSecret)
+    dockerRegistryEndpoint: 'Container Registry Connection'
+    azureSubscriptionConnection: 'Kubernetes Cluster Connection'
+    azureResourceGroup: 'akshandsonlab'
+    kubernetesCluster: 'akslabs'
+    namespace: 'default'
+    - task: KubernetesManifest@1
+  displayName: Deploy to Kubernetes cluster
+  inputs:
+    action: deploy
+    connectionType: azureResourceManager
+    azureSubscriptionConnection: 'Kubernetes Cluster Connection'
+    azureResourceGroup: 'akshandsonlab'
+    kubernetesCluster: 'akslabs'
+    namespace: 'default'
+    manifests: |
+      $(Pipeline.Workspace)/manifests/deployment.yml
+      $(Pipeline.Workspace)/manifests/service.yml
+    imagePullSecrets: |
+      $(imagePullSecret)
+    containers: |
+      $(RegistryName)/$(webRepository):$(tag)
+      $(RegistryName)/$(leaderboardRepository):$(tag)
