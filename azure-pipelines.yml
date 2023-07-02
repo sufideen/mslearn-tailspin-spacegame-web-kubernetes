@@ -38,6 +38,9 @@ displayName: 'Build and push the leaderboard image to container registry'
     tags: |
      $(tag)
 
+
+- publish: '$(Build.SourcesDirectory)/manifests'
+artifact: manifests
 - stage: 'Deploy'
   displayName: 'Deploy the container'
   dependsOn: Build
